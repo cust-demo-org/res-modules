@@ -1,0 +1,636 @@
+data "azurerm_client_config" "current" {}
+
+variable "virtual_machines" {
+  type = map(object({
+    name                = string
+    resource_group_key  = optional(string)
+    resource_group_name = optional(string)
+    zone                = string
+    location            = optional(string)
+    os_type             = optional(string, "Windows")
+    sku_size            = optional(string, "Standard_D2ds_v5")
+    enable_telemetry    = optional(bool)
+    tags                = optional(map(string), {})
+    source_image_reference = optional(object({
+      publisher = string
+      offer     = string
+      sku       = string
+      version   = string
+    }))
+    source_image_resource_id   = optional(string)
+    encryption_at_host_enabled = optional(bool, true)
+    network_interfaces = map(object({
+      name = string
+      ip_configurations = map(object({
+        name = string
+        subnet = optional(object({
+          vnet_key    = optional(string)
+          subnet_key  = optional(string)
+          resource_id = optional(string)
+        }))
+        private_ip_address                                          = optional(string)
+        private_ip_address_allocation                               = optional(string, "Dynamic")
+        private_ip_address_version                                  = optional(string, "IPv4")
+        is_primary_ipconfiguration                                  = optional(bool, true)
+        create_public_ip_address                                    = optional(bool, false)
+        public_ip_address_name                                      = optional(string)
+        public_ip_address_resource_id                               = optional(string)
+        public_ip_address_lock_name                                 = optional(string)
+        gateway_load_balancer_frontend_ip_configuration_resource_id = optional(string)
+        load_balancer_backend_pools = optional(map(object({
+          load_balancer_backend_pool_resource_id = optional(string)
+          load_balancer_key                      = optional(string)
+          backend_pool_key                       = optional(string)
+        })), {})
+        load_balancer_nat_rules = optional(map(object({
+          load_balancer_nat_rule_resource_id = string
+        })), {})
+        app_gateway_backend_pools = optional(map(object({
+          app_gateway_backend_pool_resource_id = string
+        })), {})
+      }))
+      accelerated_networking_enabled = optional(bool, false)
+      application_security_groups = optional(map(object({
+        application_security_group_resource_id = string
+      })))
+      diagnostic_settings = optional(map(object({
+        name                                     = optional(string)
+        event_hub_authorization_rule_resource_id = optional(string)
+        event_hub_name                           = optional(string)
+        log_analytics_destination_type           = optional(string)
+        log_categories_and_groups                = optional(list(string))
+        marketplace_partner_resource_id          = optional(string)
+        metric_categories                        = optional(list(string))
+        storage_account_resource_id              = optional(string)
+        workspace_resource_id                    = optional(string)
+        use_default_log_analytics                = optional(bool, true)
+      })))
+      dns_servers             = optional(list(string))
+      inherit_tags            = optional(bool, true)
+      internal_dns_name_label = optional(string)
+      ip_forwarding_enabled   = optional(bool, false)
+      lock_level              = optional(string)
+      lock_name               = optional(string)
+      network_security_groups = optional(map(object({
+        network_security_group_resource_id = optional(string)
+      })))
+      resource_group_name = optional(string)
+      role_assignments = optional(map(object({
+        role_definition_id_or_name             = optional(string)
+        principal_id                           = optional(string)
+        managed_identity_key                   = optional(string)
+        assign_to_caller                       = optional(bool, false)
+        description                            = optional(string)
+        skip_service_principal_aad_check       = optional(bool, true)
+        condition                              = optional(string)
+        condition_version                      = optional(string)
+        delegated_managed_identity_resource_id = optional(string)
+        principal_type                         = optional(string)
+        assign_to_child_public_ip_addresses    = optional(bool, false)
+      })))
+      tags = optional(map(string))
+    }))
+    os_disk = optional(object({
+      caching              = string
+      storage_account_type = string
+      disk_encryption_set = optional(object({
+        key         = optional(string)
+        resource_id = optional(string)
+      }))
+      disk_size_gb                     = optional(number)
+      name                             = optional(string)
+      secure_vm_disk_encryption_set_id = optional(string)
+      security_encryption_type         = optional(string)
+      write_accelerator_enabled        = optional(bool, false)
+      diff_disk_settings = optional(object({
+        option    = string
+        placement = optional(string, "CacheDisk")
+      }))
+    }), { caching = "ReadWrite", storage_account_type = "Premium_LRS" })
+    data_disk_managed_disks = optional(map(object({
+      name                 = string
+      storage_account_type = string
+      lun                  = number
+      caching              = string
+      create_option        = optional(string, "Empty")
+      disk_size_gb         = optional(number, 128)
+      disk_encryption_set = optional(object({
+        key         = optional(string)
+        resource_id = optional(string)
+      }))
+      disk_access_resource_id       = optional(string)
+      disk_attachment_create_option = optional(string)
+      disk_iops_read_only           = optional(number)
+      disk_iops_read_write          = optional(number)
+      disk_mbps_read_only           = optional(number)
+      disk_mbps_read_write          = optional(number)
+      lock_level                    = optional(string)
+      lock_name                     = optional(string)
+      network_access_policy         = optional(string)
+      on_demand_bursting_enabled    = optional(bool)
+      public_network_access_enabled = optional(bool, true)
+      resource_group_name           = optional(string)
+      tags                          = optional(map(string))
+      inherit_tags                  = optional(bool, true)
+      write_accelerator_enabled     = optional(bool, false)
+    })), {})
+    azure_backup_configurations = optional(map(object({
+      recovery_services_vault = optional(object({
+        key         = optional(string)
+        resource_id = optional(string)
+      }))
+      backup_policy_resource_id = optional(string)
+      exclude_disk_luns         = optional(list(number))
+      include_disk_luns         = optional(list(number))
+    })), {})
+    account_credentials = optional(object({
+      admin_credentials = optional(object({
+        username                           = optional(string, "azureuser")
+        password                           = optional(string)
+        ssh_keys                           = optional(list(string), [])
+        generate_admin_password_or_ssh_key = optional(bool, true)
+      }), {})
+      key_vault_configuration = optional(object({
+        resource_id   = optional(string)
+        key_vault_key = optional(string)
+        secret_configuration = optional(object({
+          name                           = optional(string)
+          expiration_date_length_in_days = optional(number, 45)
+          content_type                   = optional(string, "text/plain")
+          not_before_date                = optional(string)
+          tags                           = optional(map(string), {})
+        }), {})
+      }))
+      password_authentication_disabled = optional(bool, true)
+    }), {})
+    managed_identities = optional(object({
+      system_assigned                     = optional(bool, false)
+      user_assigned_resource_ids          = optional(set(string))
+      user_assigned_managed_identity_keys = optional(list(string))
+    }))
+    computer_name                          = optional(string)
+    custom_data                            = optional(string)
+    user_data                              = optional(string)
+    boot_diagnostics                       = optional(bool, false)
+    boot_diagnostics_storage_account_uri   = optional(string)
+    allow_extension_operations             = optional(bool, true)
+    availability_set_resource_id           = optional(string)
+    capacity_reservation_group_resource_id = optional(string)
+    dedicated_host_resource_id             = optional(string)
+    dedicated_host_group_resource_id       = optional(string)
+    diagnostic_settings = optional(map(object({
+      name                                     = optional(string)
+      log_categories                           = optional(set(string), [])
+      log_groups                               = optional(set(string), [])
+      metric_categories                        = optional(set(string), ["AllMetrics"])
+      log_analytics_destination_type           = optional(string, "Dedicated")
+      workspace_resource_id                    = optional(string)
+      storage_account_resource_id              = optional(string)
+      event_hub_authorization_rule_resource_id = optional(string)
+      event_hub_name                           = optional(string)
+      marketplace_partner_resource_id          = optional(string)
+      use_default_log_analytics                = optional(bool, true)
+    })), {})
+    disk_controller_type     = optional(string)
+    edge_zone                = optional(string)
+    enable_automatic_updates = optional(bool, true)
+    eviction_policy          = optional(string)
+    extensions = optional(map(object({
+      name                        = string
+      publisher                   = string
+      type                        = string
+      type_handler_version        = string
+      auto_upgrade_minor_version  = optional(bool)
+      automatic_upgrade_enabled   = optional(bool)
+      deploy_sequence             = optional(number, 5)
+      failure_suppression_enabled = optional(bool, false)
+      settings                    = optional(string)
+      protected_settings          = optional(string)
+      provision_after_extensions  = optional(list(string), [])
+      tags                        = optional(map(string))
+      protected_settings_from_key_vault = optional(object({
+        secret_url      = string
+        source_vault_id = string
+      }))
+    })), {})
+    extensions_time_budget = optional(string, "PT1H30M")
+    gallery_applications = optional(map(object({
+      version_id             = string
+      configuration_blob_uri = optional(string)
+      order                  = optional(number, 0)
+      tag                    = optional(string)
+    })), {})
+    hotpatching_enabled = optional(bool, false)
+    license_type        = optional(string)
+    lock = optional(object({
+      name = optional(string)
+      kind = string
+    }))
+    max_bid_price         = optional(number, -1)
+    patch_assessment_mode = optional(string, "ImageDefault")
+    patch_mode            = optional(string)
+    plan = optional(object({
+      name      = string
+      product   = string
+      publisher = string
+    }))
+    platform_fault_domain                 = optional(number)
+    priority                              = optional(string, "Regular")
+    provision_vm_agent                    = optional(bool, true)
+    proximity_placement_group_resource_id = optional(string)
+    role_assignments = optional(map(object({
+      role_definition_id_or_name             = string
+      principal_id                           = optional(string)
+      managed_identity_key                   = optional(string)
+      assign_to_caller                       = optional(bool, false)
+      condition                              = optional(string)
+      condition_version                      = optional(string)
+      delegated_managed_identity_resource_id = optional(string)
+      description                            = optional(string)
+      principal_type                         = optional(string)
+      skip_service_principal_aad_check       = optional(bool, false)
+    })), {})
+    role_assignments_system_managed_identity = optional(map(object({
+      role_definition_id_or_name             = string
+      scope_resource_id                      = string
+      condition                              = optional(string)
+      condition_version                      = optional(string)
+      description                            = optional(string)
+      skip_service_principal_aad_check       = optional(bool, false)
+      delegated_managed_identity_resource_id = optional(string)
+      principal_type                         = optional(string)
+    })), {})
+    secrets = optional(list(object({
+      key_vault_id = string
+      certificate = set(object({
+        url   = string
+        store = optional(string)
+      }))
+    })), [])
+    secure_boot_enabled = optional(bool)
+    shutdown_schedules = optional(map(object({
+      daily_recurrence_time = string
+      timezone              = string
+      enabled               = optional(bool, true)
+      notification_settings = optional(object({
+        enabled         = optional(bool, false)
+        email           = optional(string)
+        time_in_minutes = optional(string, "30")
+        webhook_url     = optional(string)
+      }), { enabled = false })
+      tags = optional(map(string))
+    })), {})
+    timezone                                               = optional(string)
+    virtual_machine_scale_set_resource_id                  = optional(string)
+    vtpm_enabled                                           = optional(bool)
+    bypass_platform_safety_checks_on_user_schedule_enabled = optional(bool, false)
+    reboot_setting                                         = optional(string)
+    data_disk_existing_disks = optional(map(object({
+      caching                       = string
+      managed_disk_resource_id      = string
+      lun                           = number
+      disk_attachment_create_option = optional(string, "Attach")
+      write_accelerator_enabled     = optional(bool, false)
+    })), {})
+    additional_unattend_contents = optional(list(object({
+      content = string
+      setting = string
+    })), [])
+    winrm_listeners = optional(set(object({
+      protocol        = string
+      certificate_url = optional(string)
+    })), [])
+    termination_notification = optional(object({
+      enabled = optional(bool, false)
+      timeout = optional(string, "PT5M")
+    }))
+    vm_additional_capabilities = optional(object({
+      ultra_ssd_enabled   = optional(bool, false)
+      hibernation_enabled = optional(bool)
+    }))
+    maintenance_configuration_resource_ids = optional(map(string), {})
+    public_ip_configuration_details = optional(object({
+      allocation_method       = optional(string, "Static")
+      ddos_protection_mode    = optional(string, "VirtualNetworkInherited")
+      ddos_protection_plan_id = optional(string)
+      domain_name_label       = optional(string)
+      idle_timeout_in_minutes = optional(number, 30)
+      inherit_tags            = optional(bool, false)
+      ip_version              = optional(string, "IPv4")
+      lock_level              = optional(string)
+      sku                     = optional(string, "Standard")
+      sku_tier                = optional(string, "Regional")
+      tags                    = optional(map(string))
+      zones                   = optional(set(string), ["1", "2", "3"])
+    }))
+    run_commands         = optional(any, {})
+    run_commands_secrets = optional(any, {})
+  }))
+  default     = {}
+  description = <<-EOT
+    A map of Azure Virtual Machines to create. Each VM is deployed using the AVM `Azure/avm-res-compute-virtualmachine/azurerm` module (v0.20.0).
+    The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+    - `name` - (Required) The name to use when creating the virtual machine. Changing this forces a new resource to be created.
+    - `resource_group_key` - (Required) **Pattern cross-reference**: the key of a resource group in the `resource_groups` variable (created by `spoke_network_and_share_services_pattern`). Resolved to the resource group name. At least one of `resource_group_key` or `resource_group_name` must be provided.
+    - `resource_group_name` - (Optional) The name of the resource group to deploy the VM into. Overrides `resource_group_key`. At least one of `resource_group_key` or `resource_group_name` must be provided.
+    - `zone` - (Required) The Availability Zone which the Virtual Machine should be allocated in. Only one zone is accepted. Set to `null` for regions without zones. Changing this forces a new resource to be created.
+    - `location` - (Optional) The Azure region for the VM. Defaults to `var.location`.
+    - `os_type` - (Optional) The base OS type. Valid values are `Windows` or `Linux`. Defaults to `Windows`.
+    - `sku_size` - (Optional) The VM size SKU. Defaults to `Standard_D2ds_v5`.
+    - `enable_telemetry` - (Optional) Override telemetry setting. Defaults to `var.enable_telemetry`.
+    - `tags` - (Optional) Tags merged with `var.tags`. Defaults to `{}`.
+    - `source_image_reference` - (Optional) The source image reference. Mutually exclusive with `source_image_resource_id`.
+      - `publisher` - (Required) Specifies the publisher of the image.
+      - `offer` - (Required) Specifies the offer of the image.
+      - `sku` - (Required) Specifies the SKU of the image.
+      - `version` - (Required) Specifies the version of the image.
+    - `source_image_resource_id` - (Optional) The Azure resource ID of the source image. Mutually exclusive with `source_image_reference`.
+    - `encryption_at_host_enabled` - (Optional) Should all disks be encrypted by enabling Encryption at Host? Defaults to `true`.
+    - `network_interfaces` - (Required) A map of network interfaces.
+      - `name` - (Required) The name of the Network Interface. Changing this forces a new resource to be created.
+      - `ip_configurations` - (Required) A map of IP configurations.
+        - `name` - (Required) A name for this IP Configuration.
+        - `subnet` - (Optional) Subnet configuration for this IP. Provide either key-based references (`vnet_key`/`subnet_key`) or a direct `resource_id`, not both.
+          - `vnet_key` - (Optional) **Pattern cross-reference**: key of a virtual network in the `virtual_networks` variable.
+          - `subnet_key` - (Optional) **Pattern cross-reference**: key of a subnet within the VNet identified by `vnet_key`.
+          - `resource_id` - (Optional) The subnet resource ID to use directly.
+        - `private_ip_address` - (Optional) The Static IP Address when `private_ip_address_allocation = Static`.
+        - `private_ip_address_allocation` - (Optional) `Dynamic` or `Static`. Defaults to `Dynamic`.
+        - `private_ip_address_version` - (Optional) `IPv4` or `IPv6`. Defaults to `IPv4`.
+        - `is_primary_ipconfiguration` - (Optional) Is this the Primary IP Configuration? Must be `true` for the first IP when multiple are specified. Defaults to `true`.
+        - `create_public_ip_address` - (Optional) Create a public IP for this config. Defaults to `false`.
+        - `public_ip_address_name` - (Optional) The name of the public IP address to create.
+        - `public_ip_address_resource_id` - (Optional) Reference to an existing Public IP Address resource ID.
+        - `gateway_load_balancer_frontend_ip_configuration_resource_id` - (Optional) The Frontend IP Configuration Azure Resource ID of a Gateway SKU Load Balancer.
+        - `load_balancer_backend_pools` - (Optional) A map associating this IP config with LB backend pools.
+          - `load_balancer_key` - (Optional) **Pattern cross-reference**: key of a load balancer in `var.load_balancers`. Used with `backend_pool_key`. Mutually exclusive with `load_balancer_backend_pool_resource_id`.
+          - `backend_pool_key` - (Optional) **Pattern cross-reference**: key of a backend pool within the load balancer identified by `load_balancer_key`. Used with `load_balancer_key`. Mutually exclusive with `load_balancer_backend_pool_resource_id`.
+          - `load_balancer_backend_pool_resource_id` - (Optional) Direct backend pool resource ID. Mutually exclusive with `load_balancer_key`/`backend_pool_key`.
+        - `load_balancer_nat_rules` - (Optional) A map of LB NAT rule associations.
+          - `load_balancer_nat_rule_resource_id` - (Required) A Load Balancer NAT Rule Azure Resource ID.
+        - `app_gateway_backend_pools` - (Optional) A map of Application Gateway backend pool associations.
+          - `app_gateway_backend_pool_resource_id` - (Required) An Application Gateway backend pool Azure Resource ID.
+      - `accelerated_networking_enabled` - (Optional) Should Accelerated Networking be enabled? Only certain VM sizes are supported. Defaults to `false`.
+      - `application_security_groups` - (Optional) A map of Application Security Group associations.
+        - `application_security_group_resource_id` - (Required) The ASG Azure Resource ID.
+      - `diagnostic_settings` - (Optional) A map of diagnostic settings for this NIC.
+        - `name` - (Optional) Name of the Diagnostic setting.
+        - `workspace_resource_id` - (Optional) The Log Analytics Workspace Azure Resource ID.
+        - `storage_account_resource_id` - (Optional) The Storage Account Azure Resource ID.
+        - `event_hub_authorization_rule_resource_id` - (Optional) The Event Hub authorization rule resource ID.
+        - `event_hub_name` - (Optional) The Event Hub name.
+        - `metric_categories` - (Optional) List of metric categories. Currently only `AllMetrics` is valid.
+        - `use_default_log_analytics` - (Optional) When `true`, automatically sets the `workspace_resource_id` to the Log Analytics workspace created by this pattern. Defaults to `true`.
+      - `dns_servers` - (Optional) A list of IP Addresses defining the DNS Servers for this NIC.
+      - `inherit_tags` - (Optional) Whether the NIC inherits tags from the VM. Defaults to `true`.
+      - `internal_dns_name_label` - (Optional) The relative DNS Name used for internal communications between VMs in the same VNet.
+      - `ip_forwarding_enabled` - (Optional) Should IP Forwarding be enabled? Defaults to `false`.
+      - `lock_level` - (Optional) Set to override the resource level lock. Possible values are `None`, `CanNotDelete`, and `ReadOnly`.
+      - `lock_name` - (Optional) The name for the lock on this NIC.
+      - `network_security_groups` - (Optional) A map of NSG associations.
+        - `network_security_group_resource_id` - (Optional) The NSG Azure Resource ID.
+      - `resource_group_name` - (Optional) Specify if the NIC should be created in a separate resource group from the VM.
+      - `role_assignments` - (Optional) A map of role assignments on this NIC.
+        - `role_definition_id_or_name` - (Optional) The ID or name of the role definition to assign to the principal.
+        - `principal_id` - (Optional) The ID of the principal to assign the role to. Mutually exclusive with `managed_identity_key` and `assign_to_caller`.
+        - `managed_identity_key` - (Optional) **Pattern cross-reference**: key of a managed identity in `var.managed_identities`. Resolved to the principal ID. Mutually exclusive with `principal_id`.
+        - `assign_to_caller` - (Optional) If `true`, assigns the role to the current Terraform caller. Defaults to `false`. Mutually exclusive with `principal_id` and `managed_identity_key`.
+        - `description` - (Optional) The description of the role assignment.
+        - `skip_service_principal_aad_check` - (Optional) If true, skips the Azure Active Directory check for the service principal. Defaults to `true`.
+        - `condition` - (Optional) The condition which will be used to scope the role assignment.
+        - `condition_version` - (Optional) The version of the condition syntax. Valid values are `"2.0"`.
+        - `delegated_managed_identity_resource_id` - (Optional) The delegated Azure Resource Id which contains a Managed Identity. Used in cross-tenant scenarios.
+        - `principal_type` - (Optional) The type of the `principal_id`. Possible values are `User`, `Group` and `ServicePrincipal`.
+        - `assign_to_child_public_ip_addresses` - (Optional) Also assign this role to child public IP addresses. Defaults to `false`.
+      - `tags` - (Optional) Tags to assign to this NIC.
+    - `os_disk` - (Optional) The OS disk configuration. Defaults to `{ caching = "ReadWrite", storage_account_type = "Premium_LRS" }`.
+      - `caching` - (Required) The type of caching for the internal OS disk. Possible values are `None`, `ReadOnly`, and `ReadWrite`.
+      - `storage_account_type` - (Required) The Type of Storage Account which should back the Internal OS Disk. Possible values are `Standard_LRS`, `Premium_LRS`, `StandardSSD_LRS`, `StandardSSD_ZRS` and `Premium_ZRS`. Changing this forces a new resource.
+      - `disk_encryption_set` - (Optional) Disk encryption set configuration. Provide either `key` or `resource_id`, not both.
+        - `key` - (Optional) **Pattern cross-reference**: key of a disk encryption set in `var.disk_encryption_sets`.
+        - `resource_id` - (Optional) Direct DES resource ID.
+      - `disk_size_gb` - (Optional) The Size of the Internal OS Disk in GB, if you wish to vary from the size used in the image.
+      - `name` - (Optional) The name for the Internal OS Disk. Changing this forces a new resource.
+      - `secure_vm_disk_encryption_set_id` - (Optional) The Azure Resource ID of the Disk Encryption Set for Confidential VMs. Conflicts with `disk_encryption_set`.
+      - `security_encryption_type` - (Optional) Encryption Type for Confidential VMs. Possible values are `VMGuestStateOnly` and `DiskWithVMGuestState`. Requires `vtpm_enabled = true`.
+      - `write_accelerator_enabled` - (Optional) Should Write Accelerator be Enabled? Requires `storage_account_type = Premium_LRS` and `caching = None`. Defaults to `false`.
+      - `diff_disk_settings` - (Optional) Ephemeral (diff) disk settings.
+        - `option` - (Required) Specifies the Ephemeral Disk Settings. At this time the only possible value is `Local`. Changing this forces a new resource.
+        - `placement` - (Optional) Where to store the Ephemeral Disk. Possible values are `CacheDisk` and `ResourceDisk`. Defaults to `CacheDisk`. Changing this forces a new resource.
+    - `data_disk_managed_disks` - (Optional) A map of managed data disks to create and attach. Defaults to `{}`.
+      - `name` - (Required) The name of the Managed Disk. Changing this forces a new resource.
+      - `storage_account_type` - (Required) The type of storage. Possible values are `Standard_LRS`, `StandardSSD_ZRS`, `Premium_LRS`, `PremiumV2_LRS`, `Premium_ZRS`, `StandardSSD_LRS` or `UltraSSD_LRS`.
+      - `lun` - (Required) The Logical Unit Number, must be unique within the VM. Changing this forces a new resource.
+      - `caching` - (Required) Caching type: `None`, `ReadOnly`, `ReadWrite`.
+      - `create_option` - (Optional) The method to create the disk. Defaults to `Empty`.
+      - `disk_size_gb` - (Optional) The disk size in GB. Defaults to `128`.
+      - `disk_encryption_set` - (Optional) Disk encryption set configuration. Provide either `key` or `resource_id`, not both.
+        - `key` - (Optional) **Pattern cross-reference**: key of a disk encryption set in `var.disk_encryption_sets`.
+        - `resource_id` - (Optional) Direct DES resource ID.
+      - `disk_access_resource_id` - (Optional) The ID of the disk access resource for using private endpoints on disks. Only supported when `network_access_policy = AllowPrivate`.
+      - `disk_attachment_create_option` - (Optional) The disk attachment create option, such as `Empty` or `Attach`.
+      - `disk_iops_read_only` - (Optional) IOPS allowed across all VMs mounting the shared disk as read-only. Only for `UltraSSD_LRS` and `PremiumV2_LRS`.
+      - `disk_iops_read_write` - (Optional) IOPS allowed for this disk. Only for `UltraSSD_LRS` and `PremiumV2_LRS`.
+      - `disk_mbps_read_only` - (Optional) Bandwidth in MBps allowed across all VMs mounting the shared disk as read-only.
+      - `disk_mbps_read_write` - (Optional) Bandwidth in MBps allowed for this disk.
+      - `lock_level` - (Optional) Lock level override. Possible values are `CanNotDelete` and `ReadOnly`.
+      - `lock_name` - (Optional) The name for the lock on this disk.
+      - `network_access_policy` - (Optional) Policy for accessing the disk via network. Possible values are `AllowAll`, `AllowPrivate`, and `DenyAll`.
+      - `on_demand_bursting_enabled` - (Optional) Specifies if On-Demand Bursting is enabled.
+      - `public_network_access_enabled` - (Optional) Whether public network access is enabled. Defaults to `true`.
+      - `resource_group_name` - (Optional) Specify if the data disk should be in a separate resource group.
+      - `tags` - (Optional) Tags to assign to this data disk.
+      - `inherit_tags` - (Optional) Whether to inherit tags from the VM. Defaults to `true`.
+      - `write_accelerator_enabled` - (Optional) Should Write Accelerator be enabled? Only for `Premium_LRS` with no caching on M-Series VMs. Defaults to `false`.
+    - `azure_backup_configurations` - (Optional) A map of backup configurations for this VM. Each entry references a Recovery Services Vault. Defaults to `{}`.
+      - `recovery_services_vault` - (Optional) Recovery Services Vault reference. Provide either `key` or `resource_id`, not both.
+        - `key` - (Optional) **Pattern cross-reference**: key of an RSV in `var.recovery_services_vaults`.
+        - `resource_id` - (Optional) Direct RSV resource ID.
+      - `backup_policy_resource_id` - (Optional) The backup policy resource ID. Required during creation, optional when protection state is not `ProtectionStopped`.
+      - `exclude_disk_luns` - (Optional) A list of Disk Logical Unit Numbers (LUN) to exclude from VM Protection. Mutually exclusive with `include_disk_luns`.
+      - `include_disk_luns` - (Optional) A list of Disk Logical Unit Numbers (LUN) to include for VM Protection. Mutually exclusive with `exclude_disk_luns`.
+    - `account_credentials` - (Optional) Admin credential configuration for the VM.
+      - `admin_credentials` - (Optional) Admin account settings.
+        - `username` - (Optional) The admin username. Defaults to `azureuser`.
+        - `password` - (Optional) The admin password. Auto-generated when `generate_admin_password_or_ssh_key = true` and `password_authentication_disabled = false`.
+        - `ssh_keys` - (Optional) A list of SSH public keys for Linux VMs. Only valid when `password_authentication_disabled = true`. Defaults to `[]`.
+        - `generate_admin_password_or_ssh_key` - (Optional) Whether to auto-generate a password or SSH key. Defaults to `true`.
+      - `key_vault_configuration` - (Optional) Key Vault for storing auto-generated credentials.
+        - `key_vault_key` - (Optional) **Pattern cross-reference**: key of a Key Vault in `var.key_vaults`. Mutually exclusive with `resource_id`.
+        - `resource_id` - (Optional) Direct Key Vault resource ID. Mutually exclusive with `key_vault_key`.
+        - `secret_configuration` - (Optional) Secret configuration for the stored credential.
+          - `name` - (Optional) The name of the secret. Auto-generated if not set.
+          - `expiration_date_length_in_days` - (Optional) Days until the secret expires. Defaults to `45`.
+          - `content_type` - (Optional) The content type. Defaults to `text/plain`.
+          - `not_before_date` - (Optional) The UTC datetime before which the secret is not valid.
+          - `tags` - (Optional) Tags for the secret. Defaults to `{}`.
+      - `password_authentication_disabled` - (Optional) Whether password auth is disabled for Linux VMs. Defaults to `true`. When `true`, SSH key auth is used instead.
+    - `managed_identities` - (Optional) Managed identity configuration.
+      - `system_assigned` - (Optional) Enable system-assigned identity. Defaults to `false`.
+      - `user_assigned_managed_identity_keys` - (Optional) **Pattern cross-reference**: keys from `var.managed_identities`. Mutually exclusive with `user_assigned_resource_ids`.
+      - `user_assigned_resource_ids` - (Optional) Direct UAMI resource IDs. Mutually exclusive with `user_assigned_managed_identity_keys`.
+    - `computer_name` - (Optional) Specifies the Hostname. Defaults to VM name. Changing this forces a new resource.
+    - `custom_data` - (Optional) The Base64 encoded Custom Data. Changing this forces a new resource.
+    - `user_data` - (Optional) The Base64-Encoded User Data.
+    - `boot_diagnostics` - (Optional) Enable or Disable boot diagnostics. Defaults to `false`.
+    - `boot_diagnostics_storage_account_uri` - (Optional) The Primary/Secondary Endpoint for the Azure Storage Account for Boot Diagnostics.
+    - `allow_extension_operations` - (Optional) Should Extension Operations be allowed? Defaults to `true`.
+    - `availability_set_resource_id` - (Optional) The Availability Set resource ID. Cannot be used with `zone`.
+    - `capacity_reservation_group_resource_id` - (Optional) The Capacity Reservation Group resource ID.
+    - `dedicated_host_resource_id` - (Optional) The dedicated host resource ID. Conflicts with `dedicated_host_group_resource_id`.
+    - `dedicated_host_group_resource_id` - (Optional) The dedicated host group resource ID. Conflicts with `dedicated_host_resource_id`.
+    - `diagnostic_settings` - (Optional) A map of diagnostic settings for the VM resource. Defaults to `{}`.
+      - `name` - (Optional) The name of the diagnostic setting.
+      - `log_categories` - (Optional) A set of log categories to send to the log analytics workspace. Defaults to `[]`.
+      - `log_groups` - (Optional) A set of log groups to send to the log analytics workspace. Defaults to `[]`.
+      - `metric_categories` - (Optional) A set of metric categories to send to the log analytics workspace. Defaults to `["AllMetrics"]`.
+      - `log_analytics_destination_type` - (Optional) The destination type for the diagnostic setting. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
+      - `workspace_resource_id` - (Optional) The resource ID of the log analytics workspace to send logs and metrics to.
+      - `storage_account_resource_id` - (Optional) The resource ID of the storage account to send logs and metrics to.
+      - `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the event hub authorization rule to send logs and metrics to.
+      - `event_hub_name` - (Optional) The name of the event hub. If none is specified, the default event hub will be selected.
+      - `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace resource to which you would like to send Diagnostic Logs.
+      - `use_default_log_analytics` - (Optional) When `true`, automatically sets the `workspace_resource_id` to the Log Analytics workspace created by this pattern. Defaults to `true`.
+    - `disk_controller_type` - (Optional) Disk Controller Type. Possible values are `SCSI` and `NVMe`.
+    - `edge_zone` - (Optional) The Edge Zone within the Azure Region.
+    - `enable_automatic_updates` - (Optional) Specifies if Automatic Updates are Enabled for Windows. Defaults to `true`.
+    - `eviction_policy` - (Optional) `Deallocate` or `Delete` for Spot VMs. Only valid when `priority = Spot`.
+    - `extensions` - (Optional) A map of virtual machine extensions. Defaults to `{}`.
+    - `extensions_time_budget` - (Optional) Duration for all extensions to start (ISO 8601). Defaults to `PT1H30M`.
+    - `gallery_applications` - (Optional) A map of gallery application objects. Defaults to `{}`.
+    - `hotpatching_enabled` - (Optional) Patch without reboot. Defaults to `false`.
+    - `license_type` - (Optional) BYOL license type (e.g., `Windows_Server`, `RHEL_BYOS`).
+    - `lock` - (Optional) Resource lock configuration.
+    - `max_bid_price` - (Optional) Max price for Spot VM. Defaults to `-1`.
+    - `patch_assessment_mode` - (Optional) VM Guest Patching assessment mode. Defaults to `ImageDefault`.
+    - `patch_mode` - (Optional) In-guest patching mode. `AutomaticByPlatform` or `ImageDefault`.
+    - `plan` - (Optional) Marketplace image plan configuration.
+    - `platform_fault_domain` - (Optional) Platform Fault Domain. Requires `virtual_machine_scale_set_resource_id`.
+    - `priority` - (Optional) `Regular` or `Spot`. Defaults to `Regular`.
+    - `provision_vm_agent` - (Optional) Provision Azure VM Agent. Defaults to `true`.
+    - `proximity_placement_group_resource_id` - (Optional) Proximity Placement Group ID.
+    - `role_assignments` - (Optional) A map of role assignments on the VM scope. Defaults to `{}`.
+      - `role_definition_id_or_name` - (Required) The ID or name of the role definition to assign to the principal.
+      - `principal_id` - (Optional) The ID of the principal to assign the role to. Mutually exclusive with `managed_identity_key` and `assign_to_caller`.
+      - `managed_identity_key` - (Optional) **Pattern cross-reference**: key of a managed identity in `var.managed_identities`. Resolved to the principal ID. Mutually exclusive with `principal_id`.
+      - `assign_to_caller` - (Optional) If `true`, assigns the role to the current Terraform caller. Defaults to `false`. Mutually exclusive with `principal_id` and `managed_identity_key`.
+      - `description` - (Optional) The description of the role assignment.
+      - `skip_service_principal_aad_check` - (Optional) If true, skips the Azure Active Directory check for the service principal. Defaults to `false`.
+      - `condition` - (Optional) The condition which will be used to scope the role assignment.
+      - `condition_version` - (Optional) The version of the condition syntax. Valid values are `"2.0"`.
+      - `delegated_managed_identity_resource_id` - (Optional) The delegated Azure Resource Id which contains a Managed Identity. Used in cross-tenant scenarios.
+      - `principal_type` - (Optional) The type of the `principal_id`. Possible values are `User`, `Group` and `ServicePrincipal`.
+    - `role_assignments_system_managed_identity` - (Optional) Role assignments using the VM's system-assigned managed identity as the principal. Defaults to `{}`.
+      - `role_definition_id_or_name` - (Required) The ID or name of the role definition to assign.
+      - `scope_resource_id` - (Required) The scope at which the role assignment applies (e.g., a resource group or resource ID).
+      - `condition` - (Optional) The condition which will be used to scope the role assignment.
+      - `condition_version` - (Optional) The version of the condition syntax. Valid values are `"2.0"`.
+      - `description` - (Optional) The description of the role assignment.
+      - `skip_service_principal_aad_check` - (Optional) If true, skips the AAD check for the service principal. Defaults to `false`.
+      - `delegated_managed_identity_resource_id` - (Optional) The delegated Azure Resource Id which contains a Managed Identity.
+      - `principal_type` - (Optional) The type of the principal. Possible values are `User`, `Group` and `ServicePrincipal`.
+    - `secrets` - (Optional) Key Vault certificate injection. Defaults to `[]`.
+    - `secure_boot_enabled` - (Optional) Enable Secure Boot.
+    - `shutdown_schedules` - (Optional) Auto-shutdown schedules. Defaults to `{}`.
+      - `daily_recurrence_time` - (Required) Time in `HHmm` format (e.g., `2300`).
+      - `timezone` - (Required) The time zone ID (e.g., `Singapore Standard Time`).
+      - `enabled` - (Optional) Whether enabled. Defaults to `true`.
+      - `notification_settings` - (Optional) Pre-shutdown notification settings.
+        - `enabled` - (Optional) Enable notifications. Defaults to `false`.
+        - `email` - (Optional) Email addresses separated by semi-colon.
+        - `time_in_minutes` - (Optional) Minutes before shutdown (15–120). Defaults to `30`.
+        - `webhook_url` - (Optional) Webhook URL for notifications.
+      - `tags` - (Optional) Tags for the shutdown schedule resource.
+    - `timezone` - (Optional) Time Zone for Windows VMs.
+    - `virtual_machine_scale_set_resource_id` - (Optional) Orchestrated VMSS resource ID.
+    - `vtpm_enabled` - (Optional) Enable vTPM.
+    - `bypass_platform_safety_checks_on_user_schedule_enabled` - (Optional) Skip platform patching when user schedule is set. Defaults to `false`.
+    - `reboot_setting` - (Optional) Reboot setting for platform patching. `Always`, `IfRequired` or `Never`.
+    - `data_disk_existing_disks` - (Optional) Existing managed disks to attach. Defaults to `{}`.
+    - `additional_unattend_contents` - (Optional) Unattend content for Windows VMs. Defaults to `[]`.
+    - `winrm_listeners` - (Optional) WinRM listener configurations. Defaults to `[]`.
+    - `termination_notification` - (Optional) Termination notification configuration.
+    - `vm_additional_capabilities` - (Optional) Additional VM capabilities (ultra SSD, hibernation).
+    - `maintenance_configuration_resource_ids` - (Optional) Maintenance configuration IDs. Defaults to `{}`.
+    - `public_ip_configuration_details` - (Optional) Public IP configuration when `create_public_ip_address = true`.
+    - `run_commands` - (Optional) VM Run Command configurations. Defaults to `{}`.
+    - `run_commands_secrets` - (Optional) VM Run Command sensitive values. Defaults to `{}`.
+
+    > **Pattern note:** If `location` is not specified, defaults to `var.location`. Tags in `tags` are merged with `var.tags`.
+  EOT
+}
+
+variable "location" {
+  description = "Default location fallback when a VM does not set location."
+  type        = string
+}
+
+variable "enable_telemetry" {
+  description = "Default telemetry flag fallback when a VM does not set enable_telemetry."
+  type        = bool
+  default     = true
+}
+
+variable "tags" {
+  description = "Default tags to merge with per-resource tags."
+  type        = map(string)
+  default     = {}
+}
+
+variable "lock" {
+  description = "Default lock fallback when a Data Factory does not set lock."
+  type = object({
+    kind = string
+    name = optional(string)
+  })
+  default = null
+}
+
+variable "resource_groups" {
+  description = "Resource groups output map from spoke module. Used to resolve resource_group_key to name."
+  type        = any
+  default     = {}
+}
+
+variable "virtual_networks" {
+  description = "Virtual networks output map from spoke module. Used to resolve subnet.vnet_key/subnet_key to subnet resource ID."
+  type        = any
+  default     = {}
+}
+
+variable "load_balancers" {
+  description = "Load balancers output map from the load_balancer module. Used to resolve load_balancer_key to resource_id for backend pool construction."
+  type        = any
+  default     = {}
+}
+
+variable "disk_encryption_sets" {
+  description = "Disk encryption sets output map from the disk_encryption_set module. Used to resolve disk_encryption_set.key to DES resource ID."
+  type        = any
+  default     = {}
+}
+
+variable "recovery_services_vaults" {
+  description = "Recovery services vaults output map from spoke module. Used to resolve recovery_services_vault.key to RSV resource ID."
+  type        = any
+  default     = {}
+}
+
+variable "key_vaults" {
+  description = "Key Vaults output map from spoke module. Used to resolve key_vault_key to Key Vault resource ID for credential storage."
+  type        = any
+  default     = {}
+}
+
+variable "managed_identities" {
+  description = "Managed identities output map from spoke module. Used to resolve user_assigned_managed_identity_keys to UAMI resource IDs."
+  type        = any
+  default     = {}
+}
+
+variable "default_log_analytics_workspace_resource_id" {
+  description = "Default Log Analytics Workspace resource ID for diagnostic settings when `use_default_log_analytics` is `true`."
+  type        = string
+  default     = null
+}
