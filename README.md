@@ -8,13 +8,23 @@ All modules support **key-based referencing** — resources created by pattern m
 
 | Module | AVM Source | Description |
 |---|---|---|
+| [`api_management_service`](api_management_service/) | [avm-res-apimanagement-service v0.9.0](https://registry.terraform.io/modules/Azure/avm-res-apimanagement-service/azurerm/0.9.0) | API Management with VNet injection, public IP, managed identities, additional regions, and private endpoints. |
+| [`application_gateway`](application_gateway/) | [avm-res-network-applicationgateway v0.5.2](https://registry.terraform.io/modules/Azure/avm-res-network-applicationgateway/azurerm/0.5.2) | Application Gateway with WAF policy, public/private frontends, autoscaling, and backend routing. |
+| [`application_insights`](application_insights/) | [avm-res-insights-component v0.4.0](https://registry.terraform.io/modules/Azure/avm-res-insights-component/azurerm/0.4.0) | Workspace-based Application Insights with sampling, retention, and diagnostic settings. |
+| [`app_service_plan`](app_service_plan/) | [avm-res-web-serverfarm v2.0.6](https://registry.terraform.io/modules/Azure/avm-res-web-serverfarm/azurerm/2.0.6) | App Service Plans (Server Farms) with VNet integration, scaling, and zone balancing. |
+| [`communication_services`](communication_services/) | Native `azapi_resource`\* | Azure Communication Services with linked email domains and managed identities. |
+| [`cosmos_db`](cosmos_db/) | [avm-res-documentdb-databaseaccount v0.10.0](https://registry.terraform.io/modules/Azure/avm-res-documentdb-databaseaccount/azurerm/0.10.0) | Cosmos DB accounts with CMK encryption, geo-replication, VNet rules, and private endpoints. |
 | [`data_factory`](data_factory/) | [avm-res-datafactory-factory v0.1.0](https://registry.terraform.io/modules/Azure/avm-res-datafactory-factory/azurerm/0.1.0) | Azure Data Factory with CMK encryption, managed VNet, Git integration, private endpoints, and diagnostic settings. |
 | [`disk_encryption_set`](disk_encryption_set/) | Native `azurerm_disk_encryption_set`\* | Disk Encryption Sets for customer-managed key encryption of VM disks. Referenced by the `virtual_machine` module. |
+| [`email_communication_services`](email_communication_services/) | Native `azapi_resource`\* | Email Communication Services and email domains; consumed by `communication_services`. |
 | [`load_balancer`](load_balancer/) | [avm-res-network-loadbalancer v0.5.0](https://registry.terraform.io/modules/Azure/avm-res-network-loadbalancer/azurerm/0.5.0) | Azure Load Balancer (Standard/Regional) with frontend IPs, backend pools, probes, rules, NAT rules, and outbound rules. |
 | [`private_endpoint`](private_endpoint/) | [avm-res-network-privateendpoint v0.2.0](https://registry.terraform.io/modules/Azure/avm-res-network-privateendpoint/azurerm/0.2.0) | Standalone Private Endpoints for connecting to Azure PaaS services over private networks. |
+| [`public_ip`](public_ip/) | [avm-res-network-publicipaddress v0.2.1](https://registry.terraform.io/modules/Azure/avm-res-network-publicipaddress/azurerm/0.2.1) | Public IP addresses with SKU/zones, DNS labels, DDoS protection, and diagnostics. |
 | [`virtual_machine`](virtual_machine/) | [avm-res-compute-virtualmachine v0.20.0](https://registry.terraform.io/modules/Azure/avm-res-compute-virtualmachine/azurerm/0.20.0) | Windows/Linux VMs with NIC configuration, data disks, disk encryption, Azure Backup, credential management, and extensions. |
+| [`web_application_firewall_policy`](web_application_firewall_policy/) | [avm-res-network-applicationgatewaywebapplicationfirewallpolicy v0.2.0](https://registry.terraform.io/modules/Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm/0.2.0) | App Gateway WAF policies with managed/custom rules; consumed by `application_gateway`. |
+| [`web_site`](web_site/) | [avm-res-web-site v0.22.0](https://registry.terraform.io/modules/Azure/avm-res-web-site/azurerm/0.22.0) | App Services / Function Apps / Logic Apps with deployment slots, App Insights, and private endpoints. |
 
-> \* **`disk_encryption_set`** is the only module that does not use an AVM source. The AVM Disk Encryption Set module was not adopted due to underlying bugs and provider version conflicts. The native `azurerm_disk_encryption_set` resource is used directly as an exception to the AVM-based approach used by all other modules.
+> \* **`disk_encryption_set`**, **`communication_services`**, and **`email_communication_services`** do not use an AVM source. The AVM Disk Encryption Set module was not adopted due to underlying bugs and provider version conflicts. No AVM module exists for `communication_services`, and the AVM Email Communication Services module was not adopted due to underlying bugs; both use the native `azapi_resource` instead. These are exceptions to the AVM-based approach used by all other modules.
 
 ## Key-Based Cross-Referencing
 
@@ -53,6 +63,12 @@ All modules share a consistent set of cross-reference variables sourced from pat
 | `key_vaults` | Key Vaults output map — resolves key vault and key references to URIs/IDs. |
 | `managed_identities` | Managed identities output map — resolves identity keys to resource IDs and principal IDs. |
 | `private_dns_zone_resource_ids` | Private DNS zone map — resolves DNS zone keys to resource IDs. |
+| `log_analytics_workspaces` | Log Analytics workspaces output map — resolves `workspace_key` to workspace resource IDs for diagnostics. |
+| `storage_accounts` | Storage accounts output map — resolves storage keys to names, resource IDs, and access keys. |
+| `public_ips` | Public IP output map — resolves public IP keys to resource IDs. |
+| `service_plans` | App Service Plan output map — resolves `service_plan_key` to plan resource IDs. |
+| `application_insights` | Application Insights output map — resolves AI keys to connection strings / instrumentation keys. |
+| `web_application_firewall_policies` | WAF policy output map — resolves WAF policy keys to resource IDs. |
 | `location` | Default Azure region (used when a resource does not specify its own location). |
 | `tags` | Default tags merged with per-resource tags. |
 | `enable_telemetry` | Toggle AVM telemetry collection (default varies by module). |
@@ -61,11 +77,17 @@ All modules share a consistent set of cross-reference variables sourced from pat
 
 ## Dependant Resource Variables
 
-Some modules such as virtual machine have additiional variables that allow referencing other resource modules' outputs. For example, the `virtual_machine` module takes in `disk_encryption_sets` variable which allows referencing outputs from the `disk_encryption_set` module with key-based references to enable CMK encryption on VM disks.
+Some modules accept other resource modules' outputs as variables to enable key-based references between them. Examples:
+
+- `virtual_machine` takes `disk_encryption_sets` (CMK on disks), `load_balancers` (backend pools), and `recovery_services_vaults` (backup).
+- `application_gateway` takes `public_ips` and `web_application_firewall_policies`.
+- `web_site` takes `service_plans` (from `app_service_plan`) and `application_insights`.
+- `communication_services` takes `email_services_domains` (from `email_communication_services`).
+- `api_management_service` takes `public_ips` for gateway/region public IPs.
 
 ## Prerequisites
 
 - Pattern module outputs from [ptn-lzp-connectivity-hub-vnet](https://github.com/cust-demo-org/ptn-lzp-connectivity-hub-vnet) or [ptn-lza-ntwk-shared-services](https://github.com/cust-demo-org/ptn-lza-ntwk-shared-services) (for key-based referencing)
 
 ## Usage
-Refer to repository [azure-terraform-infrastructure-as-configuration](TODO-placeholder)
+Refer to repository [azure-terraform-infra-as-config](https://github.com/cust-demo-org/azure-terraform-infra-as-config)

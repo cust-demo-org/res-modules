@@ -1,0 +1,232 @@
+variable "web_application_firewall_policies" {
+  type = map(object({
+    # --- Standard module fields ---
+    name                = string
+    resource_group_key  = optional(string)
+    resource_group_name = optional(string)
+    location            = optional(string)
+    tags                = optional(map(string), {})
+
+    # --- Policy settings ---
+    policy_settings = optional(object({
+      enabled                                   = optional(bool, true)
+      file_upload_limit_in_mb                   = optional(number, 100)
+      js_challenge_cookie_expiration_in_minutes = optional(number, 30)
+      max_request_body_size_in_kb               = optional(number, 128)
+      mode                                      = optional(string, "Prevention")
+      request_body_check                        = optional(bool, true)
+      request_body_enforcement                  = optional(bool, true)
+      request_body_inspect_limit_in_kb          = optional(number, 128)
+      log_scrubbing = optional(object({
+        enabled = optional(bool, true)
+        rule = optional(list(object({
+          enabled                 = optional(bool, true)
+          match_variable          = string
+          selector                = optional(string)
+          selector_match_operator = optional(string)
+        })))
+      }))
+    }))
+
+    # --- Managed rules (required) ---
+    managed_rules = object({
+      exclusion = optional(map(object({
+        match_variable          = string
+        selector                = string
+        selector_match_operator = string
+        excluded_rule_set = optional(object({
+          type    = optional(string, "OWASP")
+          version = optional(string, "3.2")
+          rule_group = optional(list(object({
+            excluded_rules  = optional(list(string))
+            rule_group_name = string
+          })))
+        }))
+      })))
+      managed_rule_set = map(object({
+        type    = optional(string, "OWASP")
+        version = string
+        rule_group_override = optional(map(object({
+          rule_group_name = string
+          rule = optional(list(object({
+            action  = optional(string)
+            enabled = optional(bool, false)
+            id      = string
+          })))
+        })))
+      }))
+    })
+
+    # --- Custom rules ---
+    custom_rules = optional(map(object({
+      action               = string
+      enabled              = optional(bool, true)
+      group_rate_limit_by  = optional(string)
+      name                 = optional(string)
+      priority             = number
+      rate_limit_duration  = optional(string)
+      rate_limit_threshold = optional(number)
+      rule_type            = string
+      match_conditions = map(object({
+        match_values       = optional(list(string))
+        negation_condition = optional(bool)
+        operator           = string
+        transforms         = optional(set(string))
+        match_variables = list(object({
+          selector      = optional(string)
+          variable_name = string
+        }))
+      }))
+    })))
+
+    # --- Role assignments ---
+    role_assignments = optional(map(object({
+      role_definition_id_or_name             = string
+      principal_id                           = optional(string)
+      managed_identity_key                   = optional(string)
+      assign_to_caller                       = optional(bool, false)
+      description                            = optional(string, null)
+      skip_service_principal_aad_check       = optional(bool, false)
+      condition                              = optional(string, null)
+      condition_version                      = optional(string, null)
+      delegated_managed_identity_resource_id = optional(string, null)
+      principal_type                         = optional(string, null)
+    })), {})
+
+    # --- Lock ---
+    lock = optional(object({
+      kind = string
+      name = optional(string, null)
+    }))
+
+    # --- Timeouts ---
+    timeouts = optional(object({
+      create = optional(string, null)
+      delete = optional(string, null)
+      read   = optional(string, null)
+      update = optional(string, null)
+    }))
+  }))
+  default     = {}
+  description = <<-EOT
+    A map of Application Gateway Web Application Firewall (WAF) policies to create using the `Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm` AVM module.
+    The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+    - `name` - (Required) The name of the WAF policy.
+    - `resource_group_key` - (Optional) **Pattern cross-reference**: the key of a resource group in the `resource_groups` variable (created by the spoke/pattern module). Resolved to the resource group name. At least one of `resource_group_key` or `resource_group_name` must be provided.
+    - `resource_group_name` - (Optional) The name of the resource group to deploy the WAF policy into. Overrides `resource_group_key`. At least one of `resource_group_key` or `resource_group_name` must be provided.
+    - `location` - (Optional) Azure region where the resource should be deployed. Defaults to `var.location`.
+    - `tags` - (Optional) Tags of the resource, merged with `var.tags`. Defaults to `{}`.
+
+    - `policy_settings` - (Optional) The policy settings of the WAF policy.
+      - `enabled` - (Optional) Describes if the policy is in enabled state or disabled state. Defaults to `true`.
+      - `file_upload_limit_in_mb` - (Optional) The File Upload Limit in MB. Accepted values are in the range `1` to `4000`. Defaults to `100`.
+      - `js_challenge_cookie_expiration_in_minutes` - (Optional) Specifies the JavaScript challenge cookie validity lifetime in minutes. The user is challenged after the lifetime expires. Accepted values are in the range `5` to `1440`. Defaults to `30`.
+      - `max_request_body_size_in_kb` - (Optional) The Maximum Request Body Size in KB. Accepted values are in the range `8` to `2000`. Defaults to `128`.
+      - `mode` - (Optional) Describes if it is in detection mode or prevention mode at the policy level. Valid values are `Detection` and `Prevention`. Defaults to `Prevention`.
+      - `request_body_check` - (Optional) Is Request Body Inspection enabled? Defaults to `true`.
+      - `request_body_enforcement` - (Optional) Whether the firewall should block a request with body size greater then `max_request_body_size_in_kb`. Defaults to `true`.
+      - `request_body_inspect_limit_in_kb` - (Optional) Specifies the maximum request body inspection limit in KB for the Web Application Firewall. Defaults to `128`.
+      - `log_scrubbing` - (Optional) The log scrubbing configuration for the WAF policy.
+        - `enabled` - (Optional) Whether the log scrubbing is enabled or disabled. Defaults to `true`.
+        - `rule` - (Optional) One or more log scrubbing rules.
+          - `enabled` - (Optional) Describes if the managed rule is in enabled state or disabled state. Defaults to `true`.
+          - `match_variable` - (Required) The variable to be scrubbed from the logs.
+          - `selector` - (Optional) When `match_variable` is a collection, operate on the selector to specify which elements in the collection this rule applies to.
+          - `selector_match_operator` - (Optional) When `match_variable` is a collection, operate on the `selector_match_operator` to specify which elements in the collection this rule applies to.
+
+    - `managed_rules` - (Required) The managed rules configuration of the WAF policy.
+      - `exclusion` - (Optional) A map of exclusions to apply to the managed rules.
+        - `match_variable` - (Required) The name of the Match Variable. Possible values: `RequestArgKeys`, `RequestArgNames`, `RequestArgValues`, `RequestCookieKeys`, `RequestCookieNames`, `RequestCookieValues`, `RequestHeaderKeys`, `RequestHeaderNames`, `RequestHeaderValues`.
+        - `selector` - (Required) Describes field of the matchVariable collection.
+        - `selector_match_operator` - (Required) Describes operator to be matched. Possible values: `Contains`, `EndsWith`, `Equals`, `EqualsAny`, `StartsWith`.
+        - `excluded_rule_set` - (Optional) The excluded rule set configuration for this exclusion.
+          - `type` - (Optional) The rule set type. Possible values are `Microsoft_DefaultRuleSet`, `Microsoft_BotManagerRuleSet` and `OWASP`. Defaults to `OWASP`.
+          - `version` - (Optional) The rule set version. Possible values are `1.0` (for rule set type `Microsoft_BotManagerRuleSet`), `2.1` (for rule set type `Microsoft_DefaultRuleSet`) and `3.2` (for rule set type `OWASP`). Defaults to `3.2`.
+          - `rule_group` - (Optional) One or more excluded rule groups.
+            - `excluded_rules` - (Optional) One or more Rule IDs for exclusion.
+            - `rule_group_name` - (Required) The name of rule group for exclusion. Possible values are `BadBots`, `crs_20_protocol_violations`, `crs_21_protocol_anomalies`, `crs_23_request_limits`, `crs_30_http_policy`, `crs_35_bad_robots`, `crs_40_generic_attacks`, `crs_41_sql_injection_attacks`, `crs_41_xss_attacks`, `crs_42_tight_security`, `crs_45_trojans`, `crs_49_inbound_blocking`, `General`, `GoodBots`, `KnownBadBots`, `Known-CVEs`, `REQUEST-911-METHOD-ENFORCEMENT`, `REQUEST-913-SCANNER-DETECTION`, `REQUEST-920-PROTOCOL-ENFORCEMENT`, `REQUEST-921-PROTOCOL-ATTACK`, `REQUEST-930-APPLICATION-ATTACK-LFI`, `REQUEST-931-APPLICATION-ATTACK-RFI`, `REQUEST-932-APPLICATION-ATTACK-RCE`, `REQUEST-933-APPLICATION-ATTACK-PHP`, `REQUEST-941-APPLICATION-ATTACK-XSS`, `REQUEST-942-APPLICATION-ATTACK-SQLI`, `REQUEST-943-APPLICATION-ATTACK-SESSION-FIXATION`, `REQUEST-944-APPLICATION-ATTACK-JAVA`, `UnknownBots`, `METHOD-ENFORCEMENT`, `PROTOCOL-ENFORCEMENT`, `PROTOCOL-ATTACK`, `LFI`, `RFI`, `RCE`, `PHP`, `NODEJS`, `XSS`, `SQLI`, `FIX`, `JAVA`, `MS-ThreatIntel-WebShells`, `MS-ThreatIntel-AppSec`, `MS-ThreatIntel-SQLI` and `MS-ThreatIntel-CVEs`.
+      - `managed_rule_set` - (Required) A map of managed rule sets to apply.
+        - `type` - (Optional) The rule set type. Possible values: `Microsoft_BotManagerRuleSet`, `Microsoft_DefaultRuleSet` and `OWASP`. Defaults to `OWASP`.
+        - `version` - (Required) The rule set version. Possible values: `0.1`, `1.0`, `2.1`, `2.2.9`, `3.0`, `3.1` and `3.2`.
+        - `rule_group_override` - (Optional) A map of rule group overrides.
+          - `rule_group_name` - (Required) The name of the Rule Group. Possible values are `BadBots`, `crs_20_protocol_violations`, `crs_21_protocol_anomalies`, `crs_23_request_limits`, `crs_30_http_policy`, `crs_35_bad_robots`, `crs_40_generic_attacks`, `crs_41_sql_injection_attacks`, `crs_41_xss_attacks`, `crs_42_tight_security`, `crs_45_trojans`, `crs_49_inbound_blocking`, `General`, `GoodBots`, `KnownBadBots`, `Known-CVEs`, `REQUEST-911-METHOD-ENFORCEMENT`, `REQUEST-913-SCANNER-DETECTION`, `REQUEST-920-PROTOCOL-ENFORCEMENT`, `REQUEST-921-PROTOCOL-ATTACK`, `REQUEST-930-APPLICATION-ATTACK-LFI`, `REQUEST-931-APPLICATION-ATTACK-RFI`, `REQUEST-932-APPLICATION-ATTACK-RCE`, `REQUEST-933-APPLICATION-ATTACK-PHP`, `REQUEST-941-APPLICATION-ATTACK-XSS`, `REQUEST-942-APPLICATION-ATTACK-SQLI`, `REQUEST-943-APPLICATION-ATTACK-SESSION-FIXATION`, `REQUEST-944-APPLICATION-ATTACK-JAVA`, `UnknownBots`, `METHOD-ENFORCEMENT`, `PROTOCOL-ENFORCEMENT`, `PROTOCOL-ATTACK`, `LFI`, `RFI`, `RCE`, `PHP`, `NODEJS`, `XSS`, `SQLI`, `FIX`, `JAVA`, `MS-ThreatIntel-WebShells`, `MS-ThreatIntel-AppSec`, `MS-ThreatIntel-SQLI` and `MS-ThreatIntel-CVEs`.
+          - `rule` - (Optional) One or more rule overrides.
+            - `action` - (Optional) Describes the override action to be applied when rule matches. Possible values are `Allow`, `AnomalyScoring`, `Block`, `JSChallenge` and `Log`. `JSChallenge` is only valid for rulesets of type `Microsoft_BotManagerRuleSet`.
+            - `enabled` - (Optional) Describes if the managed rule is in enabled state or disabled state. Defaults to `false`.
+            - `id` - (Required) Identifier for the managed rule.
+
+    - `custom_rules` - (Optional) A map of custom rules to apply to the WAF policy.
+      - `action` - (Required) Type of action. Possible values are `Allow`, `Block` and `Log`.
+      - `enabled` - (Optional) Describes if the policy is in enabled state or disabled state. Defaults to `true`.
+      - `group_rate_limit_by` - (Optional) Specifies what grouping the rate limit will count requests by. Possible values are `GeoLocation`, `ClientAddr` and `None`.
+      - `name` - (Optional) Gets name of the resource that is unique within a policy. This name can be used to access the resource.
+      - `priority` - (Required) Describes priority of the rule. Rules with a lower value will be evaluated before rules with a higher value.
+      - `rate_limit_duration` - (Optional) Specifies the duration at which the rate limit policy will be applied. Should be used with `RateLimitRule` rule type. Possible values are `FiveMins` and `OneMin`.
+      - `rate_limit_threshold` - (Optional) Specifies the threshold value for the rate limit policy. Must be greater than or equal to 1 if provided.
+      - `rule_type` - (Required) Describes the type of rule. Possible values are `MatchRule`, `RateLimitRule` and `Invalid`.
+      - `match_conditions` - (Required) A map of match conditions for the custom rule.
+        - `match_values` - (Optional) A list of match values. This is **Required** when the `operator` is not `Any`.
+        - `negation_condition` - (Optional) Describes if this is negate condition or not.
+        - `operator` - (Required) Describes operator to be matched. Possible values are `Any`, `IPMatch`, `GeoMatch`, `Equal`, `Contains`, `LessThan`, `GreaterThan`, `LessThanOrEqual`, `GreaterThanOrEqual`, `BeginsWith`, `EndsWith` and `Regex`.
+        - `transforms` - (Optional) A list of transformations to do before the match is attempted. Possible values are `HtmlEntityDecode`, `Lowercase`, `RemoveNulls`, `Trim`, `Uppercase`, `UrlDecode` and `UrlEncode`.
+        - `match_variables` - (Required) One or more match variables.
+          - `selector` - (Optional) Describes field of the matchVariable collection.
+          - `variable_name` - (Required) The name of the Match Variable. Possible values are `RemoteAddr`, `RequestMethod`, `QueryString`, `PostArgs`, `RequestUri`, `RequestHeaders`, `RequestBody` and `RequestCookies`.
+
+    - `role_assignments` - (Optional) A map of role assignments to create on the WAF policy. Defaults to `{}`.
+      - `role_definition_id_or_name` - (Required) The ID or name of the role definition to assign to the principal.
+      - `principal_id` - (Optional) The ID of the principal to assign the role to. Mutually exclusive with `managed_identity_key` and `assign_to_caller`.
+      - `managed_identity_key` - (Optional) **Pattern cross-reference**: the key of a managed identity in the `managed_identities` variable, resolved to its principal ID. Sets `principal_type` to `ServicePrincipal`. Mutually exclusive with `principal_id` and `assign_to_caller`.
+      - `assign_to_caller` - (Optional) When `true`, automatically uses the object ID of the identity running Terraform as the principal. Mutually exclusive with `principal_id` and `managed_identity_key`. Defaults to `false`.
+      - `description` - (Optional) The description of the role assignment.
+      - `skip_service_principal_aad_check` - (Optional) If set to `true`, skips the Azure Active Directory check for the service principal in the tenant. Only set to `true` when assigning a role to a service principal. Defaults to `false`.
+      - `condition` - (Optional) The condition which will be used to scope the role assignment.
+      - `condition_version` - (Optional) The version of the condition syntax. Valid values are `2.0`.
+      - `delegated_managed_identity_resource_id` - (Optional) The delegated Azure Resource ID which contains a Managed Identity.
+      - `principal_type` - (Optional) The type of the `principal_id`. Possible values are `User`, `Group` and `ServicePrincipal`.
+
+    - `lock` - (Optional) Controls the Resource Lock configuration for the WAF policy.
+      - `kind` - (Required) The type of lock. Possible values are `CanNotDelete` and `ReadOnly`.
+      - `name` - (Optional) The name of the lock. If not specified, a name will be generated based on the `kind` value. Changing this forces the creation of a new resource.
+
+    - `timeouts` - (Optional) The timeout configuration for the WAF policy.
+      - `create` - (Optional) Used when creating the Web Application Firewall Policy. Defaults to 30 minutes.
+      - `delete` - (Optional) Used when deleting the Web Application Firewall Policy. Defaults to 30 minutes.
+      - `read` - (Optional) Used when retrieving the Web Application Firewall Policy. Defaults to 5 minutes.
+      - `update` - (Optional) Used when updating the Web Application Firewall Policy. Defaults to 30 minutes.
+
+    > **Downstream references:** Other modules reference this resource via the map key, e.g. an application gateway reading `web_application_firewall_policies.<key>.resource_id` to associate the policy.
+
+    > **Pattern note:** If `location` is not specified, defaults to `var.location`. Tags in `tags` are merged with `var.tags`.
+  EOT
+}
+
+variable "location" {
+  description = "Default location fallback when a WAF policy does not set location."
+  type        = string
+}
+
+variable "resource_groups" {
+  description = "Resource groups output map from the spoke module. Used to resolve resource_group_key to name."
+  type        = any
+  default     = {}
+}
+
+variable "managed_identities" {
+  description = "Managed identities output map from the spoke module. Used to resolve role_assignments.managed_identity_key to a principal ID."
+  type        = any
+  default     = {}
+}
+
+variable "enable_telemetry" {
+  description = "Controls whether telemetry is enabled for the AVM module. See https://aka.ms/avm/telemetryinfo."
+  type        = bool
+  default     = true
+}
+
+variable "tags" {
+  description = "Default tags to merge with per-resource tags."
+  type        = map(string)
+  default     = {}
+}
