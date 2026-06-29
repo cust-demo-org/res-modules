@@ -183,7 +183,7 @@ Beyond network/diagnostics/role-assignments, modules commonly resolve these keys
 | `managed_identities` | `module.<pattern>.managed_identities` | `*_keys` / `*_key` → UAMI `resource_id`, `principal_id`, or `client_id` |
 | `virtual_networks` | `module.<pattern>.virtual_networks` | `vnet_key`/`subnet_key` → subnet `resource_id` |
 | `log_analytics_workspaces` | `{ default = module.<pattern>.log_analytics_workspace }` | `workspace_key` / `use_default_log_analytics` → workspace `resource_id` |
-| `key_vaults` | `module.<pattern>.key_vaults` | `key_vault_key` (e.g. on `certificates`) → Key Vault `resource_id` |
+| `key_vaults` | `module.<pattern>.key_vaults` | `key_vault_key` (e.g. on `certificates`, `customer_managed_key`) → Key Vault `resource_id`; `customer_managed_key.key_key` → key name (from the vault's `keys[key].versionless_id`) |
 | `storage_accounts` | `module.<pattern>.storage_accounts` | `storage_account_key` → storage account `name` |
 | `private_dns_zones` | `module.<pattern>.combined_private_dns_zones_resource_ids` | `private_dns_zone.keys` → DNS zone `resource_id` |
 | `application_insights` | `module.application_insights.application_insights` | `application_insights.key` → `connection_string` + `instrumentation_key` |
@@ -225,6 +225,30 @@ private_endpoints = {
 }
 ```
 
+**Customer-managed key (Key Vault + key + identity by key).** When a module exposes `customer_managed_key`, it follows a triple key-reference convention so the encryption key, its Key Vault, and the accessing identity all resolve from pattern outputs. Wire the pattern's `key_vaults` output (and the already-wired `managed_identities`):
+
+```terraform
+module "<name>" {
+  source = "../modules/<name>"
+
+  # ...
+  key_vaults         = module.<pattern_module>.key_vaults          # customer_managed_key.key_vault_key / key_key
+  managed_identities = module.<pattern_module>.managed_identities   # customer_managed_key.user_assigned_identity.key
+}
+```
+
+The module resolves `key_vault_resource_id` ← `coalesce(direct, key_vaults[key_vault_key].resource_id)`, the key name ← `key_key` (derived from `key_vaults[key_vault_key].keys[key_key].versionless_id`, since the pattern output exposes `versionless_id` not `name`) → direct `key_name`, and the UAMI ← `user_assigned_identity.key` → direct `resource_id`. In `terraform.tfvars`:
+
+```terraform
+customer_managed_key = {
+  key_vault_key = "<kv-key>"   # key into key_vaults (resolved to its resource_id)
+  key_key       = "<key-key>"  # key into key_vaults[key_vault_key].keys (resolved to the key name)
+  user_assigned_identity = {
+    key = "<uami-key>"          # key into managed_identities (resolved to its resource_id)
+  }
+}
+```
+
 ### Canonical descriptions for module-special pattern fields
 
 These fields do **not** exist in the wrapped AVM/azurerm/azapi source — they are the repo's cross-reference/standard pattern fields. The **creator** skill copies all other field descriptions verbatim from the source, but defers to the **wirer** skill (this list) for the wording of these fields. Use these exact descriptions in the module's heredoc, each marked `**Pattern cross-reference**` where it resolves a key:
@@ -243,6 +267,10 @@ These fields do **not** exist in the wrapped AVM/azurerm/azapi source — they a
 - `storage_account_key` - (Optional) **Pattern cross-reference**: the key of a storage account in the `storage_accounts` variable, resolved to its `name`. Used when the direct `storage_account_name` is not set.
 - `key_vault_reference_identity_key` / `storage_user_assigned_identity_key` - (Optional) **Pattern cross-reference**: the key of a managed identity in the `managed_identities` variable, resolved to its UAMI `resource_id`. Used when the matching direct field is not set.
 - `certificates.key_vault_key` - (Optional) **Pattern cross-reference**: the key of a Key Vault in the `key_vaults` variable, resolved to its `resource_id`. Used when the direct `key_vault_id` is not set.
+- `customer_managed_key` - (Optional) Customer-managed key encryption configuration. Provide either the key-based references or the direct resource IDs / names.
+  - `key_vault_key` - (Optional) **Pattern cross-reference**: the key of a Key Vault in the `key_vaults` variable, resolved to its `resource_id`. Used when the direct `key_vault_resource_id` is not set.
+  - `key_key` - (Optional) **Pattern cross-reference**: the key of a key in the referenced Key Vault's `keys` map (`key_vaults[key_vault_key].keys`), resolved to the key name (derived from the key's `versionless_id`). Used when the direct `key_name` is not set.
+  - `user_assigned_identity.key` - (Optional) **Pattern cross-reference**: the key of a managed identity in the `managed_identities` variable, resolved to its UAMI `resource_id`. Used when the direct `user_assigned_identity.resource_id` is not set.
 - `application_insights.key` - (Optional) **Pattern cross-reference**: the key of an Application Insights component in the `application_insights` variable, resolved to its `connection_string` and `instrumentation_key`. Used when the direct values are not set.
 - `private_endpoints.<pe>.private_dns_zone` - (Optional) Private DNS zones for the endpoint, resolved to the wrapped module's `private_dns_zone_resource_ids`.
   - `resource_ids` - (Optional) A set of private DNS zone resource IDs, used directly.
@@ -305,7 +333,7 @@ These surface only at `plan`/`apply` (not `validate`). When they trace back to t
 - [ ] Network modules wire `virtual_networks` (for `network_configuration` vnet_key/subnet_key resolution).
 - [ ] Diagnostics modules wire `log_analytics_workspaces = { default = module.<pattern>.log_analytics_workspace }` (for `use_default_log_analytics` / `workspace_key`).
 - [ ] Role-assignment modules wire `managed_identities` (for `managed_identity_key` → `principal_id`; supports `assign_to_caller`).
-- [ ] Identity/storage/key-vault/app-insights/service-plan/PE-DNS cross-refs wired: `managed_identities` (`*_identity_key`), `storage_accounts` (`storage_account_key`), `key_vaults` (`certificates.key_vault_key`), `application_insights` (`application_insights.key`), `service_plans` (`service_plan_key`), `private_dns_zones = module.<pattern>.combined_private_dns_zones_resource_ids` (`private_dns_zone.keys`).
+- [ ] Identity/storage/key-vault/app-insights/service-plan/PE-DNS cross-refs wired: `managed_identities` (`*_identity_key`), `storage_accounts` (`storage_account_key`), `key_vaults` (`certificates.key_vault_key`, `customer_managed_key.key_vault_key` / `key_key`), `application_insights` (`application_insights.key`), `service_plans` (`service_plan_key`), `private_dns_zones = module.<pattern>.combined_private_dns_zones_resource_ids` (`private_dns_zone.keys`).
 - [ ] Sibling-module dependencies wired from the producing module's output, with the consuming `module` block placed after it.
 - [ ] Example added to `<env>/terraform.tfvars` with TODO markers.
 - [ ] Providers present in `<env>/terraform.tf` + `<env>/providers.tf`.
