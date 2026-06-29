@@ -89,5 +89,16 @@ Some modules accept other resource modules' outputs as variables to enable key-b
 
 - Pattern module outputs from [ptn-lzp-connectivity-hub-vnet](https://github.com/cust-demo-org/ptn-lzp-connectivity-hub-vnet) or [ptn-lza-ntwk-shared-services](https://github.com/cust-demo-org/ptn-lza-ntwk-shared-services) (for key-based referencing)
 
+## Development Skills
+
+This repo ships two AI agent skills under [.github/skills](.github/skills) that automate authoring new modules and wiring them into root environments following the repo conventions:
+
+| Skill | Purpose | Example Usage |
+|---|---|---|
+| [`terraform-resource-module-creator`](.github/skills/terraform-resource-module-creator) | Generates a single self-contained resource module (`variables.tf`, `main.tf`, `outputs.tf`, `terraform.tf`) from an AVM module, native `azurerm` resource, or `azapi`/ARM reference. Crawls the source schema exhaustively, applies the standard `map(object)` + `for_each` conventions, key-based cross-references, managed-identity blocks, and raw outputs. | "/terraform-resource-module-creator Generate a resource module web_application_firewall_policy using this AVM module: terraform registry -> https://registry.terraform.io/modules/Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm/0.2.0, github ->https://github.com/Azure/terraform-azurerm-avm-res-network-applicationgatewaywebapplicationfirewallpolicy. Create a new folder called web_application_firewall_policy" |
+| [`terraform-resource-module-wirer`](.github/skills/terraform-resource-module-wirer) | Wires an existing module into a root environment — adds the wrapper variable, the `module` block (passing pattern/sibling-module outputs), a `terraform.tfvars` example, and required providers. | "/terraform-resource-module-wirer and wire web_application_firewall_policy module to _connectivity project folder. Take note of dependancy from ptn-lzp-connectivity-hub-vnet and web_application_firewall_policy modules." |
+
+The two skills are complementary: the creator authors module files and can hand over to the wirer to connect them into an environment.
+
 ## Usage
 Refer to repository [azure-terraform-infra-as-config](https://github.com/cust-demo-org/azure-terraform-infra-as-config)
