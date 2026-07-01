@@ -101,5 +101,14 @@ This repo ships two AI agent skills under [.github/skills](.github/skills) that 
 
 The three skills are complementary: the creator authors module files, the wirer connects them into an environment, and the docs-generator produces and refreshes each module's README.
 
+## Documentation
+
+Design and process docs live under [`docs`](docs/):
+
+| Doc | Description |
+|---|---|
+| [Testing & Validation Strategy](docs/testing-strategy.md) | Example-based testing, PR-gating tiers (static, Stage 1 idempotency, Stage 2 regression), change detection, fixtures, and reusable pwsh/`pr-check` tooling. |
+| [Versioning & Release Strategy](docs/versioning-strategy.md) | Repo-wide semver, Conventional Commits + `release-please`, per-module `metadata.yaml` provenance stamps, and the per-module-aware CHANGELOG. |
+
 ## Usage
 Refer to repository [azure-terraform-infra-as-config](https://github.com/cust-demo-org/azure-terraform-infra-as-config)
